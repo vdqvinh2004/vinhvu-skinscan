@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f4ee">
+  <title>SkinScan | Nhận diện tổn thương da học đường</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#19352f',
+            muted: '#66736d',
+            paper: '#f7f4ee',
+            card: '#fffdf9',
+            mint: '#c9e4d5',
+            'mint-strong': '#2e7764',
+            coral: '#ef8f73',
+            line: '#dfe4dd',
+            'mint-text': '#46635a',
+          },
+          fontFamily: {
+            serif: ['Georgia', '"Times New Roman"', 'serif'],
+            sans: ['Arial', 'sans-serif'],
+          },
+        },
+      },
+    };
+  </script>
+  <style type="text/tailwindcss">
+    [hidden] { display: none !important; }
+    .eyebrow { @apply mb-[18px] font-sans font-bold text-[11px] leading-snug tracking-[.16em] uppercase text-mint-strong; }
+    .primary { @apply min-h-[49px] border-0 px-[22px] rounded-[2px] font-sans font-bold text-[13px] tracking-[.02em] bg-ink text-white shadow-[0_8px_18px_rgba(25,53,47,.14)] transition-colors duration-200; }
+    .primary:hover:not(:disabled) { @apply bg-mint-strong; }
+    .primary:disabled { @apply opacity-50 cursor-not-allowed; }
+    .secondary { @apply min-h-[49px] px-[22px] rounded-[2px] font-sans font-bold text-[13px] tracking-[.02em] bg-transparent text-ink border border-line transition-colors duration-200; }
+    .secondary:hover { @apply border-ink; }
+    .brand-mark { @apply w-[31px] h-[31px] rounded-[50%_50%_50%_8px] bg-coral -rotate-45 relative; }
+    .brand-mark::after { content: ''; @apply absolute w-[7px] h-[7px] border-2 border-white rounded-full left-[10px] top-[10px]; }
+    .pulse { @apply w-[70px] h-[70px] mx-auto mb-[30px] border border-coral rounded-full relative animate-[breathe_1.5s_ease-in-out_infinite]; }
+    .pulse::after { content: ''; @apply absolute inset-[13px] bg-coral rounded-full opacity-75; }
+    .screen { animation: appear .45s ease both; }
+    .step.active { background-color: #ef8f73; }
+    #previewWrap.visible { display: flex; }
+    @keyframes appear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes breathe { 50% { transform: scale(1.16); opacity: .55; } }
+  </style>
+</head>
+<body class="min-h-screen bg-paper text-ink font-serif antialiased">
+  <div class="min-h-screen grid grid-cols-1 md:grid-cols-[minmax(290px,37%)_1fr] overflow-hidden">
+    <aside class="relative flex flex-col justify-between gap-10 min-h-[300px] md:min-h-0 px-[24px] py-[26px] md:px-[clamp(28px,5vw,76px)] md:py-[42px] bg-mint overflow-hidden">
+      <div class="hidden md:block absolute w-[190px] h-[190px] right-[-80px] bottom-[13%] border border-[rgba(46,119,100,.25)] rounded-full shadow-[0_0_0_22px_rgba(46,119,100,.05),0_0_0_44px_rgba(46,119,100,.05)]" aria-hidden="true"></div>
+      <div class="brand flex items-center gap-3 font-sans font-bold text-[15px] tracking-[.08em] uppercase"><span class="brand-mark" aria-hidden="true"></span> SkinScan</div>
+      <div class="relative z-10 max-w-[340px] mt-[50px] md:mt-0">
+        <p class="eyebrow">Chăm da học đường</p>
+        <h1 class="text-[clamp(45px,6vw,78px)] leading-[.91] tracking-[-.045em] font-medium">Hiểu làn da<br>của bạn.</h1>
+        <p class="hidden md:block max-w-[280px] mt-[27px] mb-0 text-mint-text font-sans text-[15px] leading-relaxed">Một bước kiểm tra nhẹ nhàng để bạn bắt đầu chăm sóc da đúng cách.</p>
+      </div>
+      <p class="hidden md:block relative z-10 mb-0 text-mint-text font-sans text-[12px] leading-relaxed max-w-[280px]">Kết quả từ AI chỉ mang tính tham khảo. Hãy tìm đến nhân viên y tế khi da có dấu hiệu bất thường.</p>
+    </aside>
+    <main class="flex items-start md:items-center justify-center px-[24px] py-[38px] md:p-[38px_clamp(24px,6vw,100px)]">
+      <div class="w-full max-w-[650px]">
+        <div class="flex gap-2 mb-[34px] md:mb-[45px]" aria-label="Tiến trình 4 bước">
+          <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
+          <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
+          <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
+          <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
+        </div>
+
+        <section class="screen" id="welcome">
+          <p class="eyebrow">Bước 01 / 04</p>
+          <h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em]">Bắt đầu thật<br>nhẹ nhàng.</h2>
+          <p class="lead mb-[30px] text-muted font-sans text-[16px] leading-relaxed max-w-[520px]">SkinScan phân tích hình ảnh vùng da bạn cung cấp để đưa ra một gợi ý tham khảo về 3 nhóm tình trạng da phổ biến.</p>
+          <div class="flex gap-[14px] p-[17px_18px] border border-[#eadbc8] bg-[#fff8ef] text-[#745a43] font-sans text-[13px] leading-relaxed">
+            <span class="flex-shrink-0 min-w-[25px] h-[25px] rounded-full bg-coral text-white flex items-center justify-center font-bold">!</span>
+            <div><strong class="block text-ink mb-[3px]">Lưu ý quan trọng</strong>Đây không phải công cụ chẩn đoán. Không tự ý dùng thuốc; hãy hỏi bác sĩ hoặc phụ huynh nếu triệu chứng kéo dài.</div>
+          </div>
+          <div class="flex gap-3 items-center mt-[30px]">
+            <button class="primary" id="startBtn">Tôi đã hiểu, tiếp tục</button>
+          </div>
+        </section>
+
+        <section class="screen" id="input" hidden>
+          <p class="eyebrow">Bước 02 / 04</p>
+          <h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em]">Cho chúng mình<br>xem vùng da.</h2>
+          <p class="lead mb-[30px] text-muted font-sans text-[16px] leading-relaxed max-w-[520px]">Chọn ảnh rõ nét, đủ sáng, không dùng bộ lọc. Chỉ chụp vùng da cần kiểm tra và tránh để lộ thông tin cá nhân.</p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-[14px] mt-[28px]">
+            <button class="input-card min-h-[145px] md:min-h-[190px] border border-line bg-card p-[25px] flex flex-col justify-between text-left transition-transform duration-200 hover:-translate-y-[3px] hover:border-mint-strong" id="cameraBtn" type="button">
+              <div><span class="icon w-[35px] h-[35px] inline-grid place-items-center bg-mint rounded-full text-[18px]">◉</span><h3 class="mt-3 text-[25px] font-medium">Chụp ảnh mới</h3><p class="mt-[7px] mb-0 text-muted font-sans text-[13px] leading-snug">Dùng camera của thiết bị</p></div>
+              <div class="flex items-center gap-[9px] text-mint-strong font-sans font-bold text-[12px] mt-4">Mở camera <span>→</span></div>
+            </button>
+            <label class="input-card min-h-[145px] md:min-h-[190px] border border-line bg-card p-[25px] flex flex-col justify-between cursor-pointer transition-transform duration-200 hover:-translate-y-[3px] hover:border-mint-strong">
+              <div><span class="icon w-[35px] h-[35px] inline-grid place-items-center bg-mint rounded-full text-[18px]">＋</span><h3 class="mt-3 text-[25px] font-medium">Tải ảnh lên</h3><p class="mt-[7px] mb-0 text-muted font-sans text-[13px] leading-snug">Chọn từ thư viện ảnh</p></div>
+              <div class="flex items-center gap-[9px] text-mint-strong font-sans font-bold text-[12px] mt-4">Chọn ảnh <span>→</span></div>
+              <input type="file" id="fileInput" accept="image/*" class="hidden">
+            </label>
+          </div>
+          <div class="preview-wrap mt-[24px] hidden items-center gap-[18px] p-[12px] bg-card border border-line" id="previewWrap">
+            <img id="preview" class="w-[92px] h-[92px] object-cover" alt="Ảnh vùng da đã chọn">
+            <div class="preview-copy font-sans text-[13px] leading-snug text-muted"><strong class="block text-ink mb-1">Ảnh đã sẵn sàng</strong>Kiểm tra ảnh một lần nữa trước khi phân tích.</div>
+          </div>
+          <p class="error mt-4 mb-0 text-[13px] font-sans text-[#a54e39]" id="inputError" role="alert"></p>
+        </section>
+
+        <div class="fixed inset-0 z-50 grid place-items-center p-6 bg-ink/70" id="cameraModal" hidden>
+          <div class="camera-panel w-full max-w-[480px] p-[22px] bg-card shadow-[0_24px_70px_rgba(35,61,53,.11)]" role="dialog" aria-modal="true" aria-labelledby="cameraTitle">
+            <h3 id="cameraTitle" class="mb-4 text-[27px] font-medium">Chụp ảnh vùng da</h3>
+            <video id="cameraVideo" class="block w-full aspect-[4/3] object-cover bg-[#17231f]" autoplay playsinline></video>
+            <p class="camera-status min-h-[20px] mt-3 mb-0 text-muted font-sans text-[13px] leading-snug">Đang yêu cầu quyền truy cập camera...</p>
+            <div class="flex gap-[10px] mt-[14px]">
+              <button class="secondary flex-1" id="closeCameraBtn" type="button">Đóng</button>
+              <button class="primary flex-1" id="takePhotoBtn" type="button" disabled>Chụp ảnh</button>
+            </div>
+          </div>
+        </div>
+
+        <section class="screen loading text-center py-5" id="loading" hidden>
+          <p class="eyebrow mt-0">Bước 03 / 04</p>
+          <div class="pulse" aria-hidden="true"></div>
+          <h2 class="mb-[15px] text-[40px] font-medium tracking-[-.035em]">Đang quan sát<br>hình ảnh...</h2>
+          <p class="mb-0 text-muted font-sans text-sm">AI đang so sánh các dấu hiệu trên ảnh của bạn.</p>
+        </section>
+
+        <section class="screen" id="output" hidden>
+          <div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-5 mb-[28px]">
+            <div><p class="eyebrow md:mb-0">Bước 04 / 04</p><h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em] max-w-[460px]">Gợi ý dành<br>cho làn da.</h2></div>
+            <span class="result-tag text-mint-strong font-sans font-bold text-[11px] tracking-[.12em] uppercase whitespace-nowrap mt-4 md:mt-0">Phân tích hoàn tất</span>
+          </div>
+          <div class="result-card bg-card border border-line p-[26px]">
+            <div class="flex items-center justify-between gap-5 pb-6 border-b border-line">
+              <div>
+                <div class="diagnosis-label text-muted font-sans text-[11px] uppercase tracking-[.13em]">Khả năng cao nhất</div>
+                <div class="diagnosis-name mt-1.5 text-[33px] leading-none" id="topLabel">Đang cập nhật</div>
+              </div>
+              <div class="score text-coral font-sans font-bold text-[34px]" id="topScore">0%</div>
+            </div>
+            <div class="grid gap-4 mt-6" id="bars"></div>
+            <div class="advice mt-[17px] p-[19px] bg-[#eef6f0] font-sans text-[13px] leading-relaxed text-[#486259]">
+              <strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch. Nếu tình trạng đau, sưng, lan rộng hoặc không cải thiện, hãy trao đổi với phụ huynh và gặp bác sĩ da liễu.
+            </div>
+          </div>
+          <div class="flex gap-3 items-center mt-[30px]">
+            <button class="primary" id="againBtn">Phân tích ảnh khác</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script>
+    const MODEL_URL = new URL('model.json', document.baseURI).href;
+    const METADATA_URL = new URL('metadata.json', document.baseURI).href;
+    const screens = ['welcome', 'input', 'loading', 'output'];
+    const progressSteps = document.querySelectorAll('.step');
+    let model;
+    let modelPromise;
+    let selectedImage;
+    let cameraStream;
+
+    function showScreen(name) {
+      screens.forEach((screen, index) => { document.getElementById(screen).hidden = screen !== name; progressSteps[index].classList.toggle('active', index <= screens.indexOf(name)); });
+    }
+
+    async function loadModel() {
+      if (model) return model;
+      if (window.location.protocol === 'file:') throw new Error('Hãy chạy trang bằng máy chủ local thay vì mở trực tiếp file HTML.');
+      if (!modelPromise) modelPromise = tf.ready().then(() => tmImage.load(MODEL_URL, METADATA_URL)).then(loadedModel => { model = loadedModel; return model; });
+      model = await modelPromise;
+      return model;
+    }
+
+    function readImage(file) {
+      if (!file || !file.type.startsWith('image/')) { document.getElementById('inputError').textContent = 'Vui lòng chọn một tệp hình ảnh hợp lệ.'; return; }
+      document.getElementById('inputError').textContent = '';
+      const reader = new FileReader();
+      reader.onload = event => { selectedImage = new Image(); selectedImage.onload = () => { document.getElementById('preview').src = event.target.result; document.getElementById('previewWrap').classList.add('visible'); runPrediction(); }; selectedImage.onerror = () => { document.getElementById('inputError').textContent = 'Không thể đọc ảnh này. Hãy thử ảnh JPG hoặc PNG khác.'; }; selectedImage.src = event.target.result; };
+      reader.readAsDataURL(file);
+    }
+
+    async function openCamera() {
+      const modal = document.getElementById('cameraModal');
+      const video = document.getElementById('cameraVideo');
+      const status = document.getElementById('cameraStatus');
+      modal.hidden = false;
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Trình duyệt không hỗ trợ camera.');
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+        video.srcObject = cameraStream;
+        await video.play();
+        status.textContent = 'Căn vùng da vào khung hình rồi bấm Chụp ảnh.';
+        document.getElementById('takePhotoBtn').disabled = false;
+      } catch (error) {
+        status.textContent = `Không thể mở camera: ${error.message} Hãy kiểm tra quyền camera hoặc dùng Tải ảnh lên.`;
+      }
+    }
+
+    function closeCamera() {
+      if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+      document.getElementById('cameraVideo').srcObject = null;
+      document.getElementById('takePhotoBtn').disabled = true;
+      document.getElementById('cameraModal').hidden = true;
+    }
+
+    function takePhoto() {
+      const video = document.getElementById('cameraVideo');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(blob => { closeCamera(); readImage(new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', .92);
+    }
+
+    async function runPrediction() {
+      showScreen('loading');
+      try {
+        const predictions = await (await loadModel()).predict(selectedImage);
+        predictions.sort((a, b) => b.probability - a.probability);
+        const top = predictions[0];
+        document.getElementById('topLabel').textContent = top.className;
+        document.getElementById('topScore').textContent = `${Math.round(top.probability * 100)}%`;
+        document.getElementById('bars').innerHTML = predictions.map(item => `<div class="grid grid-cols-[125px_1fr_45px] items-center gap-[10px] font-sans text-[12px]"><span>${item.className}</span><span class="h-[7px] bg-[#e9ede8] overflow-hidden"><span class="bar-fill block h-full bg-mint-strong transition-[width] duration-1000" style="width:${Math.round(item.probability * 100)}%"></span></span><span class="text-muted text-right">${Math.round(item.probability * 100)}%</span></div>`).join('');
+        showScreen('output');
+      } catch (error) { showScreen('input'); document.getElementById('inputError').textContent = `Không thể phân tích ảnh: ${error.message}`; console.error(error); }
+    }
+
+    document.getElementById('startBtn').addEventListener('click', async () => { showScreen('input'); try { await loadModel(); } catch (error) { document.getElementById('inputError').textContent = `Không thể tải mô hình: ${error.message}`; console.error(error); } });
+    document.getElementById('cameraBtn').addEventListener('click', openCamera);
+    document.getElementById('closeCameraBtn').addEventListener('click', closeCamera);
+    document.getElementById('takePhotoBtn').addEventListener('click', takePhoto);
+    document.getElementById('fileInput').addEventListener('change', event => readImage(event.target.files[0]));
+    document.getElementById('againBtn').addEventListener('click', () => { selectedImage = null; document.getElementById('previewWrap').classList.remove('visible'); document.getElementById('fileInput').value = ''; showScreen('input'); });
+  </script>
+</body>
+</html>
