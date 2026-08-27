@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f7f4ee">
   <title>SkinScan | Nhận diện tổn thương da học đường</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -46,8 +46,36 @@
     .screen { animation: appear .45s ease both; }
     .step.active { background-color: #ef8f73; }
     #previewWrap.visible { display: flex; }
+    .anim { opacity: 0; animation: fadeUp .6s cubic-bezier(.22,1,.36,1) forwards; }
+    .anim-1 { animation-delay: .05s; }
+    .anim-2 { animation-delay: .14s; }
+    .anim-3 { animation-delay: .24s; }
+    .anim-4 { animation-delay: .34s; }
+    .anim-5 { animation-delay: .44s; }
+    .anim-6 { animation-delay: .56s; }
+    .check { @apply w-[20px] h-[20px] rounded-full bg-mint text-mint-strong flex-shrink-0 grid place-items-center font-sans font-bold text-[10px]; }
+    .cta-arrow { display: inline-block; margin-left: 11px; transition: transform .22s ease; }
+    .primary:hover .cta-arrow { transform: translateX(5px); }
+    .scan-visual { position: relative; width: clamp(190px, 50vw, 250px); aspect-ratio: 1; margin-inline: auto; filter: drop-shadow(0 26px 42px rgba(25,53,47,.14)); }
+    .scan-glow { position: absolute; inset: -14%; border-radius: 50%; background: radial-gradient(circle, rgba(201,228,213,.75) 0%, rgba(201,228,213,0) 68%); animation: breathe 3.4s ease-in-out infinite; }
+    .scan-ring { position: absolute; inset: 0; border-radius: 50%; border: 1.5px dashed rgba(46,119,100,.4); animation: spin-slow 30s linear infinite; }
+    .scan-ring--inner { inset: 17%; border: 1.5px dashed rgba(239,143,115,.5); animation-duration: 20s; animation-direction: reverse; }
+    .scan-dot { position: absolute; inset: 38%; border-radius: 50%; background: radial-gradient(circle at 34% 30%, #f8b6a2, #ef8f73 58%, #dd7356); box-shadow: 0 14px 34px rgba(239,143,115,.38); animation: breathe 2.6s ease-in-out infinite; }
+    .scan-dot::after { content: ''; position: absolute; inset: 30%; border-radius: 50%; background: rgba(255,255,255,.38); filter: blur(3px); }
+    .scan-chip { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); padding: 5px 12px; border-radius: 99px; background: #19352f; color: #fff; font: 700 10px/1 Arial, sans-serif; letter-spacing: .14em; text-transform: uppercase; box-shadow: 0 8px 20px rgba(25,53,47,.3); }
+    .scan-dot--float { position: absolute; border-radius: 50%; background: #2e7764; animation: floaty 4.5s ease-in-out infinite; }
+    .scan-dot--float.coral { background: #ef8f73; }
+    .crosshair { position: absolute; width: 24px; height: 24px; }
+    .crosshair--tl { top: -5px; left: -5px; border-top: 2px solid #2e7764; border-left: 2px solid #2e7764; border-top-left-radius: 7px; }
+    .crosshair--tr { top: -5px; right: -5px; border-top: 2px solid #2e7764; border-right: 2px solid #2e7764; border-top-right-radius: 7px; }
+    .crosshair--bl { bottom: -5px; left: -5px; border-bottom: 2px solid #2e7764; border-left: 2px solid #2e7764; border-bottom-left-radius: 7px; }
+    .crosshair--br { bottom: -5px; right: -5px; border-bottom: 2px solid #2e7764; border-right: 2px solid #2e7764; border-bottom-right-radius: 7px; }
+    :focus-visible { outline: 3px solid #ef8f73; outline-offset: 4px; }
     @keyframes appear { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-    @keyframes breathe { 50% { transform: scale(1.16); opacity: .55; } }
+    @keyframes breathe { 50% { transform: scale(1.14); opacity: .62; } }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    @keyframes spin-slow { to { transform: rotate(360deg); } }
+    @keyframes floaty { 50% { transform: translateY(-9px); } }
   </style>
 </head>
 <body class="min-h-screen bg-paper text-ink font-serif antialiased">
@@ -64,30 +92,55 @@
     </aside>
     <main class="flex items-start md:items-center justify-center px-[24px] py-[38px] md:p-[38px_clamp(24px,6vw,100px)]">
       <div class="w-full max-w-[650px]">
-        <div class="flex gap-2 mb-[34px] md:mb-[45px]" aria-label="Tiến trình 4 bước">
+        <div class="flex gap-2 mb-[34px] md:mb-[45px]" aria-label="Tiến trình 4 bước" role="progressbar" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" aria-describedby="progressStatus" id="progress">
           <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
           <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
           <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
           <span class="step h-1 flex-1 rounded-full bg-line transition-colors duration-300"></span>
         </div>
+        <p class="sr-only" id="progressStatus" aria-live="polite">Bước 1 trên 4: Giới thiệu và đồng ý sử dụng.</p>
 
         <section class="screen" id="welcome">
-          <p class="eyebrow">Bước 01 / 04</p>
-          <h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em]">Bắt đầu thật<br>nhẹ nhàng.</h2>
-          <p class="lead mb-[30px] text-muted font-sans text-[16px] leading-relaxed max-w-[520px]">SkinScan phân tích hình ảnh vùng da bạn cung cấp để đưa ra một gợi ý tham khảo về 3 nhóm tình trạng da phổ biến.</p>
-          <div class="flex gap-[14px] p-[17px_18px] border border-[#eadbc8] bg-[#fff8ef] text-[#745a43] font-sans text-[13px] leading-relaxed">
-            <span class="flex-shrink-0 min-w-[25px] h-[25px] rounded-full bg-coral text-white flex items-center justify-center font-bold">!</span>
-            <div><strong class="block text-ink mb-[3px]">Lưu ý quan trọng</strong>Đây không phải công cụ chẩn đoán. Không tự ý dùng thuốc; hãy hỏi bác sĩ hoặc phụ huynh nếu triệu chứng kéo dài.</div>
-          </div>
-          <div class="flex gap-3 items-center mt-[30px]">
-            <button class="primary" id="startBtn">Tôi đã hiểu, tiếp tục</button>
+          <div class="flex flex-col-reverse lg:flex-row lg:items-center gap-[38px] lg:gap-[64px]">
+            <div class="flex-1">
+              <p class="eyebrow anim anim-1">Bước 01 / 04</p>
+              <h2 class="anim anim-2 mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em]">Bắt đầu thật<br>nhẹ nhàng.</h2>
+              <p class="lead anim anim-3 mb-[24px] text-muted font-sans text-[16px] leading-relaxed max-w-[480px]">SkinScan phân tích ảnh ngay trên thiết bị để đưa ra gợi ý tham khảo về mụn bọc, mụn đầu đen hoặc viêm da cơ địa. Đây không phải chẩn đoán y khoa.</p>
+              <ul class="anim anim-4 flex flex-col gap-[11px] mb-[28px] font-sans text-[13px] leading-snug text-mint-text">
+                <li class="flex items-center gap-[10px]"><span class="check" aria-hidden="true">✓</span>Ảnh được xử lý ngay trên thiết bị, không được gửi đi</li>
+                <li class="flex items-center gap-[10px]"><span class="check" aria-hidden="true">✓</span>Không cần đăng ký, không lưu trữ ảnh hay kết quả</li>
+                <li class="flex items-center gap-[10px]"><span class="check" aria-hidden="true">✓</span>Kết quả tham khảo nhanh chỉ trong vài giây</li>
+              </ul>
+              <div class="anim anim-5 flex gap-[14px] p-[17px_18px] border border-[#eadbc8] bg-[#fff8ef] text-[#745a43] font-sans text-[13px] leading-relaxed">
+                <span class="flex-shrink-0 min-w-[25px] h-[25px] rounded-full bg-coral text-white flex items-center justify-center font-bold">!</span>
+                <div><strong class="block text-ink mb-[3px]">Trước khi tiếp tục</strong>Chỉ tải ảnh vùng da cần kiểm tra. Không tự ý dùng thuốc; hãy hỏi phụ huynh hoặc nhân viên y tế nếu triệu chứng kéo dài hay đáng lo.</div>
+              </div>
+              <div class="flex gap-3 items-center mt-[30px]">
+                <button class="primary anim anim-6" id="startBtn">Tôi hiểu và đồng ý<span class="cta-arrow" aria-hidden="true">→</span></button>
+              </div>
+            </div>
+            <div class="anim anim-3 scan-visual flex-shrink-0" aria-hidden="true">
+              <div class="scan-glow"></div>
+              <div class="scan-ring"></div>
+              <div class="scan-ring scan-ring--inner"></div>
+              <div class="scan-dot"></div>
+              <span class="scan-chip">AI Scan</span>
+              <span class="scan-dot--float" style="top:4%;left:16%;width:10px;height:10px;animation-delay:.6s"></span>
+              <span class="scan-dot--float" style="top:22%;right:2%;width:7px;height:7px;animation-delay:1.4s"></span>
+              <span class="scan-dot--float coral" style="bottom:12%;left:6%;width:9px;height:9px;animation-delay:.2s"></span>
+              <span class="scan-dot--float coral" style="bottom:-2%;right:18%;width:6px;height:6px;animation-delay:1.9s"></span>
+              <span class="crosshair crosshair--tl"></span>
+              <span class="crosshair crosshair--tr"></span>
+              <span class="crosshair crosshair--bl"></span>
+              <span class="crosshair crosshair--br"></span>
+            </div>
           </div>
         </section>
 
         <section class="screen" id="input" hidden>
           <p class="eyebrow">Bước 02 / 04</p>
           <h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em]">Cho chúng mình<br>xem vùng da.</h2>
-          <p class="lead mb-[30px] text-muted font-sans text-[16px] leading-relaxed max-w-[520px]">Chọn ảnh rõ nét, đủ sáng, không dùng bộ lọc. Chỉ chụp vùng da cần kiểm tra và tránh để lộ thông tin cá nhân.</p>
+          <p class="lead mb-[30px] text-muted font-sans text-[16px] leading-relaxed max-w-[520px]">Chọn ảnh rõ nét, đủ sáng, không dùng bộ lọc. Chỉ chụp vùng da cần kiểm tra và tránh để lộ thông tin cá nhân. Ảnh chỉ được xử lý trong trình duyệt này.</p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-[14px] mt-[28px]">
             <button class="input-card min-h-[145px] md:min-h-[190px] border border-line bg-card p-[25px] flex flex-col justify-between text-left transition-transform duration-200 hover:-translate-y-[3px] hover:border-mint-strong" id="cameraBtn" type="button">
               <div><span class="icon w-[35px] h-[35px] inline-grid place-items-center bg-mint rounded-full text-[18px]">◉</span><h3 class="mt-3 text-[25px] font-medium">Chụp ảnh mới</h3><p class="mt-[7px] mb-0 text-muted font-sans text-[13px] leading-snug">Dùng camera của thiết bị</p></div>
@@ -96,7 +149,7 @@
             <label class="input-card min-h-[145px] md:min-h-[190px] border border-line bg-card p-[25px] flex flex-col justify-between cursor-pointer transition-transform duration-200 hover:-translate-y-[3px] hover:border-mint-strong">
               <div><span class="icon w-[35px] h-[35px] inline-grid place-items-center bg-mint rounded-full text-[18px]">＋</span><h3 class="mt-3 text-[25px] font-medium">Tải ảnh lên</h3><p class="mt-[7px] mb-0 text-muted font-sans text-[13px] leading-snug">Chọn từ thư viện ảnh</p></div>
               <div class="flex items-center gap-[9px] text-mint-strong font-sans font-bold text-[12px] mt-4">Chọn ảnh <span>→</span></div>
-              <input type="file" id="fileInput" accept="image/*" class="hidden">
+              <input type="file" id="fileInput" accept="image/*" class="hidden" aria-label="Chọn ảnh vùng da từ thiết bị">
             </label>
           </div>
           <div class="preview-wrap mt-[24px] hidden items-center gap-[18px] p-[12px] bg-card border border-line" id="previewWrap">
@@ -110,7 +163,7 @@
           <div class="camera-panel w-full max-w-[480px] p-[22px] bg-card shadow-[0_24px_70px_rgba(35,61,53,.11)]" role="dialog" aria-modal="true" aria-labelledby="cameraTitle">
             <h3 id="cameraTitle" class="mb-4 text-[27px] font-medium">Chụp ảnh vùng da</h3>
             <video id="cameraVideo" class="block w-full aspect-[4/3] object-cover bg-[#17231f]" autoplay playsinline></video>
-            <p class="camera-status min-h-[20px] mt-3 mb-0 text-muted font-sans text-[13px] leading-snug">Đang yêu cầu quyền truy cập camera...</p>
+            <p class="camera-status min-h-[20px] mt-3 mb-0 text-muted font-sans text-[13px] leading-snug" id="cameraStatus" role="status">Đang yêu cầu quyền truy cập camera...</p>
             <div class="flex gap-[10px] mt-[14px]">
               <button class="secondary flex-1" id="closeCameraBtn" type="button">Đóng</button>
               <button class="primary flex-1" id="takePhotoBtn" type="button" disabled>Chụp ảnh</button>
@@ -118,33 +171,37 @@
           </div>
         </div>
 
-        <section class="screen loading text-center py-5" id="loading" hidden>
+        <section class="screen loading text-center py-5" id="loading" hidden aria-live="polite" aria-busy="true">
           <p class="eyebrow mt-0">Bước 03 / 04</p>
           <div class="pulse" aria-hidden="true"></div>
           <h2 class="mb-[15px] text-[40px] font-medium tracking-[-.035em]">Đang quan sát<br>hình ảnh...</h2>
           <p class="mb-0 text-muted font-sans text-sm">AI đang so sánh các dấu hiệu trên ảnh của bạn.</p>
         </section>
 
-        <section class="screen" id="output" hidden>
+        <section class="screen" id="output" hidden aria-live="polite" tabindex="-1">
           <div class="flex flex-col md:flex-row items-start md:items-end justify-between gap-5 mb-[28px]">
             <div><p class="eyebrow md:mb-0">Bước 04 / 04</p><h2 class="mb-[15px] text-[clamp(34px,5vw,54px)] leading-[.98] font-medium tracking-[-.035em] max-w-[460px]">Gợi ý dành<br>cho làn da.</h2></div>
-            <span class="result-tag text-mint-strong font-sans font-bold text-[11px] tracking-[.12em] uppercase whitespace-nowrap mt-4 md:mt-0">Phân tích hoàn tất</span>
+            <span class="result-tag text-mint-strong font-sans font-bold text-[11px] tracking-[.12em] uppercase whitespace-nowrap mt-4 md:mt-0" id="resultTag">Phân tích hoàn tất</span>
           </div>
           <div class="result-card bg-card border border-line p-[26px]">
             <div class="flex items-center justify-between gap-5 pb-6 border-b border-line">
               <div>
-                <div class="diagnosis-label text-muted font-sans text-[11px] uppercase tracking-[.13em]">Khả năng cao nhất</div>
+                <div class="diagnosis-label text-muted font-sans text-[11px] uppercase tracking-[.13em]" id="resultLabel">Khả năng cao nhất</div>
                 <div class="diagnosis-name mt-1.5 text-[33px] leading-none" id="topLabel">Đang cập nhật</div>
               </div>
               <div class="score text-coral font-sans font-bold text-[34px]" id="topScore">0%</div>
             </div>
             <div class="grid gap-4 mt-6" id="bars"></div>
-            <div class="advice mt-[17px] p-[19px] bg-[#eef6f0] font-sans text-[13px] leading-relaxed text-[#486259]">
-              <strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch. Nếu tình trạng đau, sưng, lan rộng hoặc không cải thiện, hãy trao đổi với phụ huynh và gặp bác sĩ da liễu.
+            <div class="advice mt-[17px] p-[19px] bg-[#eef6f0] font-sans text-[13px] leading-relaxed text-[#486259]" id="advice">
+              <strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch.
+            </div>
+            <div class="mt-[14px] p-[19px] border border-[#eadbc8] bg-[#fff8ef] font-sans text-[13px] leading-relaxed text-[#745a43]">
+              <strong class="block mb-[5px] text-ink">Hãy nói với người lớn và tìm hỗ trợ y tế sớm nếu</strong>vùng da đau nhiều, sưng hoặc đỏ lan nhanh, có sốt, chảy mủ/chảy máu, xuất hiện gần mắt, hoặc không cải thiện và ngày càng nặng hơn.
             </div>
           </div>
           <div class="flex gap-3 items-center mt-[30px]">
             <button class="primary" id="againBtn">Phân tích ảnh khác</button>
+            <button class="secondary" id="retakeBtn" type="button" hidden>Chụp lại ảnh</button>
           </div>
         </section>
       </div>
@@ -153,30 +210,65 @@
   <script>
     const MODEL_URL = new URL('model.json', document.baseURI).href;
     const METADATA_URL = new URL('metadata.json', document.baseURI).href;
+    const LOW_CONFIDENCE_THRESHOLD = 0.70;
     const screens = ['welcome', 'input', 'loading', 'output'];
+    const stepDescriptions = [
+      'Bước 1 trên 4: Giới thiệu và đồng ý sử dụng.',
+      'Bước 2 trên 4: Chọn ảnh vùng da.',
+      'Bước 3 trên 4: Đang phân tích ảnh.',
+      'Bước 4 trên 4: Kết quả tham khảo.'
+    ];
     const progressSteps = document.querySelectorAll('.step');
     let model;
     let modelPromise;
     let selectedImage;
     let cameraStream;
+    let cameraTrigger;
 
     function showScreen(name) {
-      screens.forEach((screen, index) => { document.getElementById(screen).hidden = screen !== name; progressSteps[index].classList.toggle('active', index <= screens.indexOf(name)); });
+      const activeIndex = screens.indexOf(name);
+      screens.forEach((screen, index) => {
+        const section = document.getElementById(screen);
+        section.hidden = screen !== name;
+        progressSteps[index].classList.toggle('active', index <= activeIndex);
+      });
+      document.getElementById('progress').setAttribute('aria-valuenow', String(activeIndex + 1));
+      document.getElementById('progressStatus').textContent = stepDescriptions[activeIndex];
+      document.getElementById('loading').setAttribute('aria-busy', String(name === 'loading'));
     }
 
     async function loadModel() {
       if (model) return model;
       if (window.location.protocol === 'file:') throw new Error('Hãy chạy trang bằng máy chủ local thay vì mở trực tiếp file HTML.');
-      if (!modelPromise) modelPromise = tf.ready().then(() => tmImage.load(MODEL_URL, METADATA_URL)).then(loadedModel => { model = loadedModel; return model; });
+      if (!modelPromise) {
+        modelPromise = tf.ready()
+          .then(() => tmImage.load(MODEL_URL, METADATA_URL))
+          .then(loadedModel => { model = loadedModel; return model; })
+          .catch(error => { modelPromise = null; throw error; });
+      }
       model = await modelPromise;
       return model;
     }
 
+    function setInputError(message) {
+      document.getElementById('inputError').textContent = message;
+    }
+
     function readImage(file) {
-      if (!file || !file.type.startsWith('image/')) { document.getElementById('inputError').textContent = 'Vui lòng chọn một tệp hình ảnh hợp lệ.'; return; }
-      document.getElementById('inputError').textContent = '';
+      if (!file || !file.type.startsWith('image/')) { setInputError('Vui lòng chọn một tệp hình ảnh hợp lệ.'); return; }
+      setInputError('');
       const reader = new FileReader();
-      reader.onload = event => { selectedImage = new Image(); selectedImage.onload = () => { document.getElementById('preview').src = event.target.result; document.getElementById('previewWrap').classList.add('visible'); runPrediction(); }; selectedImage.onerror = () => { document.getElementById('inputError').textContent = 'Không thể đọc ảnh này. Hãy thử ảnh JPG hoặc PNG khác.'; }; selectedImage.src = event.target.result; };
+      reader.onload = event => {
+        selectedImage = new Image();
+        selectedImage.onload = () => {
+          document.getElementById('preview').src = event.target.result;
+          document.getElementById('previewWrap').classList.add('visible');
+          runPrediction();
+        };
+        selectedImage.onerror = () => setInputError('Không thể đọc ảnh này. Hãy thử ảnh JPG hoặc PNG khác.');
+        selectedImage.src = event.target.result;
+      };
+      reader.onerror = () => setInputError('Không thể đọc tệp này. Hãy thử ảnh JPG hoặc PNG khác.');
       reader.readAsDataURL(file);
     }
 
@@ -184,7 +276,10 @@
       const modal = document.getElementById('cameraModal');
       const video = document.getElementById('cameraVideo');
       const status = document.getElementById('cameraStatus');
+      cameraTrigger = document.activeElement;
       modal.hidden = false;
+      status.textContent = 'Đang yêu cầu quyền truy cập camera...';
+      document.getElementById('takePhotoBtn').disabled = true;
       try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Trình duyệt không hỗ trợ camera.');
         cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
@@ -192,26 +287,90 @@
         await video.play();
         status.textContent = 'Căn vùng da vào khung hình rồi bấm Chụp ảnh.';
         document.getElementById('takePhotoBtn').disabled = false;
+        document.getElementById('takePhotoBtn').focus();
       } catch (error) {
+        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
         status.textContent = `Không thể mở camera: ${error.message} Hãy kiểm tra quyền camera hoặc dùng Tải ảnh lên.`;
+        document.getElementById('closeCameraBtn').focus();
       }
     }
 
-    function closeCamera() {
+    function closeCamera({ restoreFocus = true } = {}) {
       if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
       cameraStream = null;
       document.getElementById('cameraVideo').srcObject = null;
       document.getElementById('takePhotoBtn').disabled = true;
       document.getElementById('cameraModal').hidden = true;
+      if (restoreFocus && cameraTrigger instanceof HTMLElement) cameraTrigger.focus();
     }
 
     function takePhoto() {
       const video = document.getElementById('cameraVideo');
+      if (!video.videoWidth || !video.videoHeight) {
+        document.getElementById('cameraStatus').textContent = 'Camera chưa sẵn sàng. Hãy đợi vài giây rồi thử lại.';
+        return;
+      }
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => { closeCamera(); readImage(new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' })); }, 'image/jpeg', .92);
+      canvas.toBlob(blob => {
+        if (!blob) {
+          document.getElementById('cameraStatus').textContent = 'Không thể tạo ảnh từ camera. Hãy thử lại hoặc tải ảnh lên.';
+          return;
+        }
+        closeCamera({ restoreFocus: false });
+        readImage(new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', .92);
+    }
+
+    function renderPredictionBars(predictions) {
+      const bars = document.getElementById('bars');
+      bars.replaceChildren();
+      predictions.forEach(item => {
+        const percent = Math.round(item.probability * 100);
+        const row = document.createElement('div');
+        row.className = 'grid grid-cols-[125px_1fr_45px] items-center gap-[10px] font-sans text-[12px]';
+        const label = document.createElement('span');
+        label.textContent = item.className;
+        const track = document.createElement('span');
+        track.className = 'h-[7px] bg-[#e9ede8] overflow-hidden';
+        const fill = document.createElement('span');
+        fill.className = 'bar-fill block h-full bg-mint-strong transition-[width] duration-1000';
+        fill.style.width = `${percent}%`;
+        track.append(fill);
+        const score = document.createElement('span');
+        score.className = 'text-muted text-right';
+        score.textContent = `${percent}%`;
+        row.append(label, track, score);
+        bars.append(row);
+      });
+    }
+
+    function renderResult(predictions) {
+      const top = predictions[0];
+      const isConfident = top.probability >= LOW_CONFIDENCE_THRESHOLD;
+      const topLabel = document.getElementById('topLabel');
+      const topScore = document.getElementById('topScore');
+      const bars = document.getElementById('bars');
+      document.getElementById('retakeBtn').hidden = isConfident;
+
+      if (isConfident) {
+        document.getElementById('resultTag').textContent = 'Gợi ý tham khảo';
+        document.getElementById('resultLabel').textContent = 'AI nhận diện có khả năng cao nhất';
+        topLabel.textContent = top.className;
+        topScore.textContent = `${Math.round(top.probability * 100)}%`;
+        document.getElementById('advice').innerHTML = '<strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Đây chỉ là gợi ý từ AI, không thay thế chẩn đoán. Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch.';
+        renderPredictionBars(predictions);
+      } else {
+        document.getElementById('resultTag').textContent = 'Cần ảnh rõ hơn';
+        document.getElementById('resultLabel').textContent = 'Kết quả chưa đủ rõ để gợi ý';
+        topLabel.textContent = 'Hãy thử lại';
+        topScore.textContent = '';
+        bars.replaceChildren();
+        document.getElementById('advice').innerHTML = '<strong class="block mb-[5px] text-ink">Cách chụp lại ảnh</strong>Chụp ở nơi đủ sáng, lấy nét một vùng da, không dùng bộ lọc và tránh rung tay. SkinScan sẽ không hiển thị tên tình trạng da khi độ tin cậy dưới 70%.';
+      }
     }
 
     async function runPrediction() {
@@ -219,20 +378,30 @@
       try {
         const predictions = await (await loadModel()).predict(selectedImage);
         predictions.sort((a, b) => b.probability - a.probability);
-        const top = predictions[0];
-        document.getElementById('topLabel').textContent = top.className;
-        document.getElementById('topScore').textContent = `${Math.round(top.probability * 100)}%`;
-        document.getElementById('bars').innerHTML = predictions.map(item => `<div class="grid grid-cols-[125px_1fr_45px] items-center gap-[10px] font-sans text-[12px]"><span>${item.className}</span><span class="h-[7px] bg-[#e9ede8] overflow-hidden"><span class="bar-fill block h-full bg-mint-strong transition-[width] duration-1000" style="width:${Math.round(item.probability * 100)}%"></span></span><span class="text-muted text-right">${Math.round(item.probability * 100)}%</span></div>`).join('');
+        renderResult(predictions);
         showScreen('output');
-      } catch (error) { showScreen('input'); document.getElementById('inputError').textContent = `Không thể phân tích ảnh: ${error.message}`; console.error(error); }
+        document.getElementById('output').focus();
+      } catch (error) { showScreen('input'); setInputError(`Không thể phân tích ảnh: ${error.message}`); console.error(error); }
     }
 
-    document.getElementById('startBtn').addEventListener('click', async () => { showScreen('input'); try { await loadModel(); } catch (error) { document.getElementById('inputError').textContent = `Không thể tải mô hình: ${error.message}`; console.error(error); } });
+    function resetForAnotherImage() {
+      selectedImage = null;
+      document.getElementById('preview').removeAttribute('src');
+      document.getElementById('previewWrap').classList.remove('visible');
+      document.getElementById('fileInput').value = '';
+      setInputError('');
+      showScreen('input');
+      document.getElementById('cameraBtn').focus();
+    }
+
+    document.getElementById('startBtn').addEventListener('click', async () => { showScreen('input'); try { await loadModel(); } catch (error) { setInputError(`Không thể tải mô hình: ${error.message}`); console.error(error); } });
     document.getElementById('cameraBtn').addEventListener('click', openCamera);
     document.getElementById('closeCameraBtn').addEventListener('click', closeCamera);
     document.getElementById('takePhotoBtn').addEventListener('click', takePhoto);
     document.getElementById('fileInput').addEventListener('change', event => readImage(event.target.files[0]));
-    document.getElementById('againBtn').addEventListener('click', () => { selectedImage = null; document.getElementById('previewWrap').classList.remove('visible'); document.getElementById('fileInput').value = ''; showScreen('input'); });
+    document.getElementById('againBtn').addEventListener('click', resetForAnotherImage);
+    document.getElementById('retakeBtn').addEventListener('click', resetForAnotherImage);
+    document.addEventListener('keydown', event => { if (event.key === 'Escape' && !document.getElementById('cameraModal').hidden) closeCamera(); });
   </script>
 </body>
 </html>
