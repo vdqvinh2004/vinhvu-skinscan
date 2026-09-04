@@ -195,6 +195,14 @@
             <div class="advice mt-[17px] p-[19px] bg-[#eef6f0] font-sans text-[13px] leading-relaxed text-[#486259]" id="advice">
               <strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch.
             </div>
+            <div class="mt-[14px] p-[19px] border border-mint bg-mint/30 font-sans text-[13px] leading-relaxed text-mint-text" id="expertAdvice" hidden>
+              <div class="flex items-center gap-2 mb-[7px] text-mint-strong font-bold text-[11px] tracking-[.08em] uppercase">
+                <span aria-hidden="true">✓</span><span>Thông tin đã được chuyên gia xác nhận</span>
+              </div>
+              <strong class="block mb-[5px] text-ink" id="expertAdviceTitle"></strong>
+              <p class="mb-2" id="expertAdviceSummary"></p>
+              <p class="mb-0" id="expertAdviceAction"></p>
+            </div>
             <div class="mt-[14px] p-[19px] border border-[#eadbc8] bg-[#fff8ef] font-sans text-[13px] leading-relaxed text-[#745a43]">
               <strong class="block mb-[5px] text-ink">Hãy nói với người lớn và tìm hỗ trợ y tế sớm nếu</strong>vùng da đau nhiều, sưng hoặc đỏ lan nhanh, có sốt, chảy mủ/chảy máu, xuất hiện gần mắt, hoặc không cải thiện và ngày càng nặng hơn.
             </div>
@@ -211,6 +219,23 @@
     const MODEL_URL = new URL('model.json', document.baseURI).href;
     const METADATA_URL = new URL('metadata.json', document.baseURI).href;
     const LOW_CONFIDENCE_THRESHOLD = 0.70;
+    const EXPERT_GUIDANCE = {
+      'Viêm da cơ địa': {
+        title: 'Chăm sóc viêm da cơ địa',
+        summary: 'Đây là bệnh viêm da mạn tính hoặc hay tái phát, thường gây khô và ngứa. Bệnh có thể thuyên giảm nhưng dễ bùng phát khi gặp yếu tố thuận lợi.',
+        action: 'Tắm nhanh bằng nước ấm vừa với sản phẩm dịu nhẹ, thấm khô không kỳ cọ và bôi dưỡng ẩm không hương liệu ngay sau tắm. Không gãi, đắp lá hoặc tự dùng kem trộn và corticoid.'
+      },
+      'Mụn bọc': {
+        title: 'Chăm sóc mụn bọc',
+        summary: 'Mụn bọc là tổn thương viêm sâu, sưng và đau, có nguy cơ để lại thâm hoặc sẹo. Kết quả hình ảnh chỉ là gợi ý tham khảo.',
+        action: 'Rửa mặt nhẹ nhàng tối đa 2 lần mỗi ngày, chọn sản phẩm không gây bít tắc và tuyệt đối không nặn, chọc kim hoặc tự hút mủ. Nên khám da liễu sớm nếu nốt mụn sâu, đau hoặc có nguy cơ để lại sẹo.'
+      },
+      'Mụn đầu đen': {
+        title: 'Chăm sóc mụn tuổi dậy thì',
+        summary: 'Mụn trứng cá thường liên quan đến thay đổi hormone, dầu thừa và bít tắc nang lông ở tuổi dậy thì. Stress và một số mỹ phẩm có thể làm mụn nặng hơn.',
+        action: 'Rửa mặt nhẹ nhàng 2 lần mỗi ngày, dưỡng ẩm và dùng kem chống nắng SPF 30+; ưu tiên sản phẩm không gây bít tắc. Có thể cân nhắc benzoyl peroxide hoặc adapalene theo hướng dẫn phù hợp, không phối hợp quá nhiều hoạt chất cùng lúc.'
+      }
+    };
     const screens = ['welcome', 'input', 'loading', 'output'];
     const stepDescriptions = [
       'Bước 1 trên 4: Giới thiệu và đồng ý sử dụng.',
@@ -362,6 +387,14 @@
         topLabel.textContent = top.className;
         topScore.textContent = `${Math.round(top.probability * 100)}%`;
         document.getElementById('advice').innerHTML = '<strong class="block mb-[5px] text-ink">Lời khuyên an toàn</strong>Đây chỉ là gợi ý từ AI, không thay thế chẩn đoán. Rửa mặt dịu nhẹ, không nặn hoặc cạy vùng da tổn thương và giữ tay sạch.';
+        const expertGuidance = EXPERT_GUIDANCE[top.className];
+        const expertAdvice = document.getElementById('expertAdvice');
+        expertAdvice.hidden = !expertGuidance;
+        if (expertGuidance) {
+          document.getElementById('expertAdviceTitle').textContent = expertGuidance.title;
+          document.getElementById('expertAdviceSummary').textContent = expertGuidance.summary;
+          document.getElementById('expertAdviceAction').textContent = expertGuidance.action;
+        }
         renderPredictionBars(predictions);
       } else {
         document.getElementById('resultTag').textContent = 'Cần ảnh rõ hơn';
@@ -369,6 +402,7 @@
         topLabel.textContent = 'Hãy thử lại';
         topScore.textContent = '';
         bars.replaceChildren();
+        document.getElementById('expertAdvice').hidden = true;
         document.getElementById('advice').innerHTML = '<strong class="block mb-[5px] text-ink">Cách chụp lại ảnh</strong>Chụp ở nơi đủ sáng, lấy nét một vùng da, không dùng bộ lọc và tránh rung tay. SkinScan sẽ không hiển thị tên tình trạng da khi độ tin cậy dưới 70%.';
       }
     }
